@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Minecraft Skin Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Google Fonts: Comfortaa -->
+  <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      background: #1b1b1b;
+      color: #f0f0f0;
+      font-family: 'Comfortaa', cursive;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+    }
+
+    h1 {
+      margin-top: 10px;
+      font-size: 1.8rem;
+      color: #ccc;
+      text-shadow: 0 0 10px #ccc;
+      text-align: center;
+    }
+
+    #viewerContainer {
+      position: relative;
+      width: 100%;
+      max-width: 500px;
+      aspect-ratio: 5 / 6;
+      margin: 15px 0;
+      padding: 0;
+      background: #2a2a2a;
+      border-radius: 15px;
+      box-shadow: 0 0 20px rgba(200,200,200,0.5);
+    }
+
+    #viewer {
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      background: #222;
+      display: block;
+    }
+
+    select {
+      width: 100%;
+      max-width: 500px;
+      margin: 10px 0;
+      padding: 10px;
+      font-size: 16px;
+      font-family: 'Comfortaa', cursive;
+      background: #333;
+      color: #ccc;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      transition: 0.2s;
+    }
+
+    select:hover {
+      background: #444;
+      cursor: pointer;
+    }
+
+    select:focus {
+      outline: none;
+      box-shadow: 0 0 10px #ccc;
+    }
+
+    #overlayToggle {
+      width: 100%;
+      max-width: 500px;
+      margin-top: 10px;
+      padding: 10px;
+      font-size: 16px;
+      font-family: 'Comfortaa', cursive;
+      background: #555;
+      color: #ccc;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    #overlayToggle.active {
+      background: #aaa;
+      color: #1b1b1b;
+    }
+
+    #overlayToggle:hover {
+      opacity: 0.9;
+    }
+
+    footer {
+      margin-top: 20px;
+      font-size: 0.85rem;
+      color: #888;
+      text-align: center;
+      font-family: 'Comfortaa', cursive;
+    }
+
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 1.5rem;
+      }
+      select, #overlayToggle {
+        font-size: 14px;
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Minecraft Skin Viewer</h1>
+  
+  <select id="skinSelect"></select>
+
+  <div id="viewerContainer">
+    <canvas id="viewer"></canvas>
+  </div>
+
+  <button id="overlayToggle" class="active">Overlay</button>
+
+  <footer>Skin Viewer by CheSh1re</footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/skinview3d@3.4.1/bundles/skinview3d.bundle.js"></script>
+
+  <script>
+    function capitalize(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    function initSkinViewer() {
+      if (!window.skinview3d) {
+        alert("Ошибка: skinview3d не загрузился!");
+        return;
+      }
+
+      const canvas = document.getElementById("viewer");
+      const container = document.getElementById("viewerContainer");
+
+      const viewer = new skinview3d.SkinViewer({
+        canvas: canvas,
+        width: container.clientWidth,
+        height: container.clientHeight,
+        skin: ""
+      });
+
+      viewer.controls.enableZoom = true;
+      viewer.controls.enableRotate = true;
+      viewer.controls.enablePan = false;
+
+      const overlayToggle = document.getElementById("overlayToggle");
+      let overlayEnabled = true;
+      let currentSkin = "";
+
+      function resizeViewer() {
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        canvas.width = w;
+        canvas.height = h;
+        viewer.width = w;
+        viewer.height = h;
+        viewer.renderer.setSize(w, h);
+      }
+
+      window.addEventListener("resize", resizeViewer);
+      resizeViewer();
+
+      fetch("skins/skins.json")
+        .then(res => res.json())
+        .then(files => {
+          const select = document.getElementById("skinSelect");
+          select.innerHTML = "";
+
+          files.forEach(file => {
+            const option = document.createElement("option");
+            option.value = file;
+            option.textContent = capitalize(file.replace(".png", ""));
+            select.appendChild(option);
+          });
+
+          if (files.length > 0) {
+            currentSkin = files[0];
+            loadSkin(currentSkin, overlayEnabled);
+            select.value = currentSkin;
+          }
+
+          select.addEventListener("change", () => {
+            currentSkin = select.value;
+            loadSkin(currentSkin, overlayEnabled);
+          });
+        })
+        .catch(err => {
+          console.error("Не удалось загрузить skins.json:", err);
+        });
+
+      overlayToggle.addEventListener("click", () => {
+        overlayEnabled = !overlayEnabled;
+        overlayToggle.classList.toggle("active", overlayEnabled);
+        if (currentSkin) {
+          loadSkin(currentSkin, overlayEnabled);
+        }
+      });
+
+      function loadSkin(skinName, overlay) {
+        const fileName = overlay ? skinName.replace(".png", "_overlay.png") : skinName;
+        viewer.loadSkin("skins/" + fileName).catch(err => {
+          console.error("Ошибка загрузки скина:", err);
+        });
+      }
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initSkinViewer);
+    } else {
+      initSkinViewer();
+    }
+  </script>
+</body>
+</html>
