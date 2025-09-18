@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Minecraft Skin Viewer</title>
+  <title>Minecraft Character Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link rel="icon" href="logo.png" type="image/png">
@@ -40,14 +40,24 @@
       background: #2a2a2a;
       border-radius: 15px;
       box-shadow: 0 0 20px rgba(200,200,200,0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
-    #viewer {
+    #viewer, #humanImage {
       width: 100%;
       height: 100%;
       border-radius: 10px;
       background: #222;
       display: block;
+      object-fit: contain;
+      user-select: none; /* запрет выделения */
+    }
+
+    #humanImage {
+      cursor: pointer;
+      draggable: false;
     }
 
     select {
@@ -74,10 +84,10 @@
       box-shadow: 0 0 10px #ccc;
     }
 
-    #overlayToggle {
-      width: 100%;
-      max-width: 500px;
-      margin-top: 10px;
+    .toggle-btn {
+      width: 48%;
+      max-width: 240px;
+      margin: 5px 1%;
       padding: 10px;
       font-size: 16px;
       font-family: 'Comfortaa', cursive;
@@ -89,13 +99,9 @@
       transition: 0.2s;
     }
 
-    #overlayToggle.active {
+    .toggle-btn.active {
       background: #aaa;
       color: #1b1b1b;
-    }
-
-    #overlayToggle:hover {
-      opacity: 0.9;
     }
 
     footer {
@@ -110,25 +116,36 @@
       h1 {
         font-size: 1.5rem;
       }
-      select, #overlayToggle {
+      select, .toggle-btn {
         font-size: 14px;
         padding: 8px;
       }
     }
+
+    #buttonContainer {
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      justify-content: space-between;
+    }
   </style>
 </head>
 <body>
-  <h1>Minecraft Skin Viewer</h1>
+  <h1>Minecraft Character Viewer</h1>
   
   <select id="skinSelect"></select>
 
   <div id="viewerContainer">
     <canvas id="viewer"></canvas>
+    <img id="humanImage" src="" style="display:none;" draggable="false">
   </div>
 
-  <button id="overlayToggle" class="active">Overlay</button>
+  <div id="buttonContainer">
+    <button id="overlayToggle" class="toggle-btn active">Overlay</button>
+    <button id="humanToggle" class="toggle-btn">Human Version</button>
+  </div>
 
-  <footer>Skin Viewer by CheSh1re</footer>
+  <footer>Char Viewer by CheSh1re</footer>
 
   <script src="https://cdn.jsdelivr.net/npm/skinview3d@3.4.1/bundles/skinview3d.bundle.js"></script>
 
@@ -144,6 +161,7 @@
       }
 
       const canvas = document.getElementById("viewer");
+      const humanImage = document.getElementById("humanImage");
       const container = document.getElementById("viewerContainer");
 
       const viewer = new skinview3d.SkinViewer({
@@ -158,7 +176,10 @@
       viewer.controls.enablePan = false;
 
       const overlayToggle = document.getElementById("overlayToggle");
+      const humanToggle = document.getElementById("humanToggle");
+
       let overlayEnabled = true;
+      let humanMode = false;
       let currentSkin = "";
 
       function resizeViewer() {
@@ -189,32 +210,54 @@
 
           if (files.length > 0) {
             currentSkin = files[0];
-            loadSkin(currentSkin, overlayEnabled);
+            loadSkin(currentSkin);
             select.value = currentSkin;
           }
 
           select.addEventListener("change", () => {
             currentSkin = select.value;
-            loadSkin(currentSkin, overlayEnabled);
+            loadSkin(currentSkin);
           });
         })
-        .catch(err => {
-          console.error("Не удалось загрузить skins.json:", err);
-        });
+        .catch(err => console.error("Не удалось загрузить skins.json:", err));
 
       overlayToggle.addEventListener("click", () => {
         overlayEnabled = !overlayEnabled;
         overlayToggle.classList.toggle("active", overlayEnabled);
-        if (currentSkin) {
-          loadSkin(currentSkin, overlayEnabled);
+        if (!humanMode && currentSkin) loadSkin(currentSkin);
+      });
+
+      humanToggle.addEventListener("click", () => {
+        humanMode = !humanMode;
+        humanToggle.classList.toggle("active", humanMode);
+        if (humanMode) {
+          humanImage.src = "skins/" + currentSkin.replace(".png", "_hver.png");
+          humanImage.style.display = "block";
+          canvas.style.display = "none";
+        } else {
+          humanImage.style.display = "none";
+          canvas.style.display = "block";
+          if (currentSkin) loadSkin(currentSkin);
         }
       });
 
-      function loadSkin(skinName, overlay) {
-        const fileName = overlay ? skinName.replace(".png", "_overlay.png") : skinName;
-        viewer.loadSkin("skins/" + fileName).catch(err => {
-          console.error("Ошибка загрузки скина:", err);
-        });
+      // Скачивание картинки при клике
+      humanImage.addEventListener("click", () => {
+        const link = document.createElement("a");
+        link.href = humanImage.src;
+        link.download = currentSkin.replace(".png", "_hver.png");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });
+
+      // Запрет перемещения картинки при drag
+      humanImage.addEventListener("dragstart", e => e.preventDefault());
+
+      function loadSkin(skinName) {
+        if (humanMode) return;
+        const fileName = overlayEnabled ? skinName.replace(".png", "_overlay.png") : skinName;
+        viewer.loadSkin("skins/" + fileName).catch(err => console.error("Ошибка загрузки скина:", err));
       }
     }
 
