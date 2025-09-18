@@ -104,6 +104,12 @@
       color: #1b1b1b;
     }
 
+    .toggle-btn.disabled {
+      background: #333;
+      color: #666;
+      cursor: not-allowed;
+    }
+
     footer {
       margin-top: 20px;
       font-size: 0.85rem;
@@ -154,6 +160,12 @@
       return str.charAt(0).toUpperCase() + str.slice(1);
     }
 
+    function fileExists(url) {
+      return fetch(url, { method: 'HEAD' })
+        .then(res => res.ok)
+        .catch(() => false);
+    }
+
     function initSkinViewer() {
       if (!window.skinview3d) {
         alert("Ошибка: skinview3d не загрузился!");
@@ -197,37 +209,41 @@
 
       fetch("skins/skins.json")
         .then(res => res.json())
-        .then(files => {
+        .then(async files => {
           const select = document.getElementById("skinSelect");
           select.innerHTML = "";
 
-          files.forEach(file => {
+          for (const file of files) {
             const option = document.createElement("option");
             option.value = file;
             option.textContent = capitalize(file.replace(".png", ""));
             select.appendChild(option);
-          });
+          }
 
           if (files.length > 0) {
             currentSkin = files[0];
+            await updateButtonStates(currentSkin);
             loadSkin(currentSkin);
             select.value = currentSkin;
           }
 
-          select.addEventListener("change", () => {
+          select.addEventListener("change", async () => {
             currentSkin = select.value;
+            await updateButtonStates(currentSkin);
             loadSkin(currentSkin);
           });
         })
         .catch(err => console.error("Не удалось загрузить skins.json:", err));
 
       overlayToggle.addEventListener("click", () => {
+        if (overlayToggle.classList.contains("disabled")) return;
         overlayEnabled = !overlayEnabled;
         overlayToggle.classList.toggle("active", overlayEnabled);
         if (!humanMode && currentSkin) loadSkin(currentSkin);
       });
 
       humanToggle.addEventListener("click", () => {
+        if (humanToggle.classList.contains("disabled")) return;
         humanMode = !humanMode;
         humanToggle.classList.toggle("active", humanMode);
         if (humanMode) {
@@ -241,7 +257,6 @@
         }
       });
 
-      // Скачивание картинки при клике
       humanImage.addEventListener("click", () => {
         const link = document.createElement("a");
         link.href = humanImage.src;
@@ -251,13 +266,29 @@
         document.body.removeChild(link);
       });
 
-      // Запрет перемещения картинки при drag
       humanImage.addEventListener("dragstart", e => e.preventDefault());
+
+      async function updateButtonStates(skinName) {
+        const overlayExists = await fileExists("skins/" + skinName.replace(".png", "_overlay.png"));
+        const humanExists = await fileExists("skins/" + skinName.replace(".png", "_hver.png"));
+
+        overlayToggle.disabled = !overlayExists;
+        humanToggle.disabled = !humanExists;
+
+        overlayToggle.classList.toggle("disabled", !overlayExists);
+        humanToggle.classList.toggle("disabled", !humanExists);
+
+        // если файл не существует, выключаем соответствующий режим
+        if (!overlayExists && overlayEnabled) overlayEnabled = false;
+        if (!humanExists && humanMode) humanMode = false;
+      }
 
       function loadSkin(skinName) {
         if (humanMode) return;
         const fileName = overlayEnabled ? skinName.replace(".png", "_overlay.png") : skinName;
-        viewer.loadSkin("skins/" + fileName).catch(err => console.error("Ошибка загрузки скина:", err));
+        viewer.loadSkin("skins/" + fileName).catch(err => {
+          console.warn("Скин недоступен, кнопка Overlay/Human должна быть отключена:", err);
+        });
       }
     }
 
